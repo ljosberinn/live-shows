@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { Table, Container, Segment, Input } from 'semantic-ui-react';
 
 const concerts = require('./concerts.json')
@@ -22,7 +22,8 @@ const concerts = require('./concerts.json')
   }, [])
   .sort((a, b) =>
     new Date(a.shows[0].date) < new Date(b.shows[0].date) ? 1 : -1,
-  );
+  )
+  .map(dataset => ({ ...dataset, shows: dataset.shows.reverse() }));
 
 const ArtistAnchor = ({ artist }) => (
   <a
@@ -34,10 +35,34 @@ const ArtistAnchor = ({ artist }) => (
   </a>
 );
 
+const Row = memo(
+  ({ date, artist, amountOfShows, venue, concert, isFirstShow }) => {
+    const timestamp = new Date(date);
+    const isUpcoming = timestamp.getTime() > now;
+
+    return (
+      <Table.Row positive={isUpcoming}>
+        {isFirstShow && (
+          <td rowSpan={amountOfShows}>
+            <ArtistAnchor artist={artist} />
+          </td>
+        )}
+        <td>
+          <time dateTime={date}>{timestamp.toLocaleDateString()}</time>
+        </td>
+        <td>{venue}</td>
+        <td>{concert}</td>
+      </Table.Row>
+    );
+  },
+);
+
+const now = Date.now();
+
+const headColumns = ['Artist', 'Date', 'Venue', 'Concert'];
+
 const App = () => {
   const [filter, setFilter] = useState('');
-
-  const now = Date.now();
 
   const handleChange = ({ target }) => {
     const value = target.value.trim().toLowerCase();
@@ -74,7 +99,7 @@ const App = () => {
         >
           <thead>
             <tr>
-              {['Artist', 'Date', 'Venue', 'Concert'].map(title => (
+              {headColumns.map(title => (
                 <th key={title}>{title}</th>
               ))}
             </tr>
@@ -94,27 +119,20 @@ const App = () => {
           </thead>
           <tbody>
             {filteredConcerts.map(({ shows, artist }) =>
-              shows.reverse().map(({ date, venue, concert }, index) => {
-                const timestamp = new Date(date);
-                const isUpcoming = timestamp.getTime() > now;
-
-                return (
-                  <Table.Row positive={isUpcoming} key={`${date}-${artist}`}>
-                    {index === 0 && (
-                      <td rowSpan={shows.length}>
-                        <ArtistAnchor artist={artist} />
-                      </td>
-                    )}
-                    <td>
-                      <time dateTime={date}>
-                        {timestamp.toLocaleDateString()}
-                      </time>
-                    </td>
-                    <td>{venue}</td>
-                    <td>{concert}</td>
-                  </Table.Row>
-                );
-              }),
+              shows.map(({ date, venue, concert }) => (
+                <Row
+                  {...{
+                    date,
+                    artist,
+                    venue,
+                    concert,
+                    isFirstShow:
+                      shows.findIndex(show => show.date === date) === 0,
+                    amountOfShows: shows.length,
+                  }}
+                  key={`${date}-${artist}`}
+                />
+              )),
             )}
           </tbody>
           <tfoot>
